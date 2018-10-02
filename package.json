@@ -1,5 +1,5 @@
 {
-  "name": "camptocamp-prometheus-alertmanager-datasource",
+  "name": "prometheus-alertmanager-datasource",
   "private": true,
   "version": "0.0.1",
   "description": "",
@@ -10,12 +10,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/camptocamp/grafana-prometheus-alertmanager-datasource.git"
+    "url": "git+https://github.com/sapcc/grafana-prometheus-alertmanager-datasource.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/camptocamp/grafana-prometheus-alertmanager-datasource/issues"
+    "url": "https://github.com/sapcc/grafana-prometheus-alertmanager-datasource/issues"
   },
   "engines": {
     "node": "6.10.0"
