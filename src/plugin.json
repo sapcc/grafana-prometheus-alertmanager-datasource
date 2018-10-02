@@ -1,6 +1,6 @@
 {
   "name": "Prometheus' AlertManager",
-  "id": "camptocamp-prometheus-alertmanager-datasource",
+  "id": "prometheus-alertmanager-datasource",
   "type": "datasource",
 
   "partials": {
@@ -21,7 +21,7 @@
       "large": "img/simpleJson_logo.svg"
     },
     "links": [
-      {"name": "GitHub", "url": "https://github.com/camptocamp/grafana-prometheus-alertmanager-datasource"},
+      {"name": "GitHub", "url": "https://github.com/sapcc/grafana-prometheus-alertmanager-datasource"},
       {"name": "MIT License", "url": "https://github.com/camptocamp/grafana-prometheus-alertmanager-datasource/blob/master/LICENSE"}
     ],
     "version": "0.0.1",
