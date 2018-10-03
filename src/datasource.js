@@ -6,7 +6,7 @@ export class GenericDatasource {
     this.type = instanceSettings.type;
     this.url = instanceSettings.url;
     this.name = instanceSettings.name;
-    this.silenced = instanceSettings.jsonData.silenced;
+    this.silenced = typeof instanceSettings.jsonData.silenced !== "undefined" ? instanceSettings.jsonData.silenced : false;
     this.severityLevels = {}
     this.severityLevels[instanceSettings.jsonData.severity_critical.toLowerCase()]  = 4;
     this.severityLevels[instanceSettings.jsonData.severity_high.toLowerCase()]      = 3;
@@ -100,6 +100,7 @@ export class GenericDatasource {
     parseQuery(queryString) {
         const silencedRegex = /=(.*)/;
         let aQueries = queryString.split(",");
+        this.silenced = false;
         aQueries = aQueries.filter(q => {
             if (q.includes("silenced")) {
                 let r = silencedRegex.exec(q);
