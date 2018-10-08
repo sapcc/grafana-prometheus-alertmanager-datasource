@@ -84,14 +84,16 @@ export class GenericDatasource {
                 queryString = this.parseQuery(queryString)
             }
             let filter = encodeURIComponent(queryString || "");
+            let silenced = this.silenced === "only" || this.silenced ? true : false;
             return this.backendSrv.datasourceRequest({
-                url: `${this.url}/api/v1/alerts?silenced=${this.silenced}&inhibited=false&filter=${filter}`,
+                url: `${this.url}/api/v1/alerts?silenced=${silenced}&inhibited=false&filter=${filter}`,
                 data: query,
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             }).then(response => {
+                let data = this.filterSilencedOnlyData(response.data.data)
                 return {
-                    "data": [{ "datapoints": [ [response.data.data.length, Date.now()] ]}]
+                    "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
                 }
             });
         }
@@ -107,18 +109,25 @@ export class GenericDatasource {
                 if (r != null) {
                     this.silenced = r[1];
                 }
-                return false;
+                return false
             } else {
                 return true
             }
         });
-        if (this.silenced == "only") {
-            this.silenced = true
-            aQueries.push("status.silencedBy!=[]")
-        }
         queryString = aQueries.join(",")
         queryString = queryString.replace(/\s/g, "");
         return queryString;
+    }
+
+    filterSilencedOnlyData(data) {
+        if (this.silenced !== "only") {
+            return data;
+        }
+        return data.filter(d => {
+            if (d.status.silencedBy.length === 0) {
+                return false;
+            }
+        });
     }
 
     getColumns(columnsDict) {

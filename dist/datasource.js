@@ -166,14 +166,16 @@ System.register(["lodash"], function (_export, _context) {
                                 _queryString = this.parseQuery(_queryString);
                             }
                             var _filter = encodeURIComponent(_queryString || "");
+                            var silenced = this.silenced === "only" || this.silenced ? true : false;
                             return this.backendSrv.datasourceRequest({
-                                url: this.url + "/api/v1/alerts?silenced=" + this.silenced + "&inhibited=false&filter=" + _filter,
+                                url: this.url + "/api/v1/alerts?silenced=" + silenced + "&inhibited=false&filter=" + _filter,
                                 data: query,
                                 method: 'GET',
                                 headers: { 'Content-Type': 'application/json' }
                             }).then(function (response) {
+                                var data = _this.filterSilencedOnlyData(response.data.data);
                                 return {
-                                    "data": [{ "datapoints": [[response.data.data.length, Date.now()]] }]
+                                    "data": [{ "datapoints": [[data.length, Date.now()]] }]
                                 };
                             });
                         }
@@ -197,13 +199,21 @@ System.register(["lodash"], function (_export, _context) {
                                 return true;
                             }
                         });
-                        if (this.silenced == "only") {
-                            this.silenced = true;
-                            aQueries.push("status.silencedBy!=[]");
-                        }
                         queryString = aQueries.join(",");
                         queryString = queryString.replace(/\s/g, "");
                         return queryString;
+                    }
+                }, {
+                    key: "filterSilencedOnlyData",
+                    value: function filterSilencedOnlyData(data) {
+                        if (this.silenced !== "only") {
+                            return data;
+                        }
+                        return data.filter(function (d) {
+                            if (d.status.silencedBy.length === 0) {
+                                return false;
+                            }
+                        });
                     }
                 }, {
                     key: "getColumns",
