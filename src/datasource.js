@@ -110,8 +110,11 @@ export class GenericDatasource {
                 return false;
             } else {
                 return true
-            } 
+            }
         });
+        if (this.silenced = "only") {
+            aQueries.push("status.silencedBy!=[]")
+        }
         queryString = aQueries.join(",")
         queryString = queryString.replace(/\s/g, "");
         return queryString;
