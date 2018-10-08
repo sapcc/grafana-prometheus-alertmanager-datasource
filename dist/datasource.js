@@ -197,7 +197,8 @@ System.register(["lodash"], function (_export, _context) {
                                 return true;
                             }
                         });
-                        if (this.silenced = "only") {
+                        if (this.silenced == "only") {
+                            this.silenced = true;
                             aQueries.push("status.silencedBy!=[]");
                         }
                         queryString = aQueries.join(",");
