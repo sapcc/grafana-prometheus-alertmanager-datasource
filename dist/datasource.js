@@ -41,7 +41,7 @@ System.register(["lodash"], function (_export, _context) {
                     this.type = instanceSettings.type;
                     this.url = instanceSettings.url;
                     this.name = instanceSettings.name;
-                    this.silenced = instanceSettings.jsonData.silenced;
+                    this.silenced = typeof instanceSettings.jsonData.silenced !== "undefined" ? instanceSettings.jsonData.silenced : false;
                     this.severityLevels = {};
                     this.severityLevels[instanceSettings.jsonData.severity_critical.toLowerCase()] = 4;
                     this.severityLevels[instanceSettings.jsonData.severity_high.toLowerCase()] = 3;
@@ -185,8 +185,9 @@ System.register(["lodash"], function (_export, _context) {
 
                         var silencedRegex = /=(.*)/;
                         var aQueries = queryString.split(",");
+                        this.silenced = false;
                         aQueries = aQueries.filter(function (q) {
-                            if (q.includes("silenced")) {
+                            if (q.includes("silenced=")) {
                                 var r = silencedRegex.exec(q);
                                 if (r != null) {
                                     _this2.silenced = r[1];

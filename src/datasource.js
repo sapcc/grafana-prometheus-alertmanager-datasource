@@ -102,7 +102,7 @@ export class GenericDatasource {
         let aQueries = queryString.split(",");
         this.silenced = false;
         aQueries = aQueries.filter(q => {
-            if (q.includes("silenced")) {
+            if (q.includes("silenced=")) {
                 let r = silencedRegex.exec(q);
                 if (r != null) {
                     this.silenced = r[1];
