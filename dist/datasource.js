@@ -75,7 +75,7 @@ System.register(["lodash"], function (_export, _context) {
                             // Format data for table panel
                             return this.formatDataTable(query, queryString, querySilenced);
                         } else {
-                            return this.formatDataStat(queryString, querySilenced);
+                            return this.formatDataStat(query, queryString, querySilenced);
                         }
                     }
                 }, {
@@ -168,10 +168,10 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "formatDataStat",
-                    value: function formatDataStat(queryString, silenced) {
+                    value: function formatDataStat(query, queryString, silenced) {
                         var _this2 = this;
 
-                        return this.makeRequest(queryString, silenced).then(function (response) {
+                        return this.makeRequest(query, queryString, silenced).then(function (response) {
                             var data = _this2.filterSilencedOnlyData(response.data.data, silenced);
                             return {
                                 "data": [{ "datapoints": [[data.length, Date.now()]] }]
@@ -180,12 +180,12 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "makeRequest",
-                    value: function makeRequest(queryString, silenced) {
+                    value: function makeRequest(query, queryString, silenced) {
                         var bSilenced = silenced === "only" || silenced ? true : false;
-                        var filter = encodeURIComponent(query || "");
+                        var filter = encodeURIComponent(queryString || "");
                         return this.backendSrv.datasourceRequest({
                             url: this.url + "/api/v1/alerts?silenced=" + bSilenced + "&inhibited=false&filter=" + filter,
-                            data: queryString,
+                            data: query,
                             method: 'GET',
                             headers: { 'Content-Type': 'application/json' }
                         });

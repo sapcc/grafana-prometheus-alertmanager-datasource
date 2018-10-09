@@ -34,7 +34,7 @@ export class GenericDatasource {
             // Format data for table panel
             return this.formatDataTable(query, queryString, querySilenced);
         } else {
-            return this.formatDataStat(queryString, querySilenced);
+            return this.formatDataStat(query, queryString, querySilenced);
         }
     }
 
@@ -82,8 +82,8 @@ export class GenericDatasource {
         });
     }
 
-    formatDataStat(queryString, silenced) {
-        return this.makeRequest(queryString, silenced).then(response => {
+    formatDataStat(query, queryString, silenced) {
+        return this.makeRequest(query, queryString, silenced).then(response => {
             let data = this.filterSilencedOnlyData(response.data.data, silenced)
             return {
                 "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
@@ -91,12 +91,12 @@ export class GenericDatasource {
         });
     }
 
-    makeRequest(queryString, silenced) {
+    makeRequest(query, queryString, silenced) {
         let bSilenced = silenced === "only" || silenced ? true : false;
-        let filter = encodeURIComponent(query || "");
+        let filter = encodeURIComponent(queryString || "");
         return this.backendSrv.datasourceRequest({
             url: `${this.url}/api/v1/alerts?silenced=${bSilenced}&inhibited=false&filter=${filter}`,
-            data: queryString,
+            data: query,
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
