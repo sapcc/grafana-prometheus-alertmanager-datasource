@@ -91,11 +91,11 @@ export class GenericDatasource {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             }).then(function(response) {
-                let data = this.filterSilencedOnlyData(response.data.data, this)
+                let data = that.filterSilencedOnlyData(response.data.data, this.silenced)
                 return {
                     "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
                 }
-            }.bind(bSilenced));
+            }.bind({that: this, silenced: bSilenced}));
         }
     }
 
