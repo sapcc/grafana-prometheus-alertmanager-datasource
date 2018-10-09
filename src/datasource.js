@@ -138,6 +138,7 @@ export class GenericDatasource {
             if (d.status.silencedBy.length === 0) {
                 return false;
             }
+            return true;
         });
     }
 

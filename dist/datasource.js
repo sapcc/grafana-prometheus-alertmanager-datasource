@@ -229,6 +229,7 @@ System.register(["lodash"], function (_export, _context) {
                             if (d.status.silencedBy.length === 0) {
                                 return false;
                             }
+                            return true;
                         });
                     }
                 }, {
