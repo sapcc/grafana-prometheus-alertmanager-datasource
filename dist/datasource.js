@@ -176,11 +176,11 @@ System.register(["lodash"], function (_export, _context) {
                                 method: 'GET',
                                 headers: { 'Content-Type': 'application/json' }
                             }).then(function (response) {
-                                var data = that.filterSilencedOnlyData(response.data.data, this.silenced);
+                                var data = this.filterSilencedOnlyData(response.data.data, this.silenced);
                                 return {
                                     "data": [{ "datapoints": [[data.length, Date.now()]] }]
                                 };
-                            }.bind({ that: this, silenced: bSilenced }));
+                            }.bind({ filterSilencedOnlyData: this.filterSilencedOnlyData, silenced: bSilenced }));
                         }
                     }
                 }, {
