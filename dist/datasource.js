@@ -70,22 +70,21 @@ System.register(["lodash"], function (_export, _context) {
                                 queryString = _parseQuery.queryString,
                                 querySilenced = _parseQuery.querySilenced;
                         }
-                        var filter = encodeURIComponent(queryString || "");
 
                         if (query.targets[0].type === "table") {
                             // Format data for table panel
-                            return this.formatDataTable(query, filter, querySilenced);
+                            return this.formatDataTable(query, queryString, querySilenced);
                         } else {
-                            return this.formatDataStat(query, querySilenced);
+                            return this.formatDataStat(queryString, querySilenced);
                         }
                     }
                 }, {
                     key: "formatDataTable",
-                    value: function formatDataTable(query, filter, silenced) {
+                    value: function formatDataTable(query, queryString, silenced) {
                         var _this = this;
 
                         var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-                        return this.makeRequest(filter, silenced).then(function (response) {
+                        return this.makeRequest(queryString, silenced).then(function (response) {
                             var results = {
                                 "data": [{
                                     "rows": [],
@@ -169,10 +168,10 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "formatDataStat",
-                    value: function formatDataStat(filter, silenced) {
+                    value: function formatDataStat(queryString, silenced) {
                         var _this2 = this;
 
-                        return this.makeRequest(filter, silenced).then(function (response) {
+                        return this.makeRequest(queryString, silenced).then(function (response) {
                             var data = _this2.filterSilencedOnlyData(response.data.data, silenced);
                             return {
                                 "data": [{ "datapoints": [[data.length, Date.now()]] }]
@@ -181,11 +180,12 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "makeRequest",
-                    value: function makeRequest(filter, silenced) {
+                    value: function makeRequest(queryString, silenced) {
                         var bSilenced = silenced === "only" || silenced ? true : false;
+                        var filter = encodeURIComponent(query || "");
                         return this.backendSrv.datasourceRequest({
                             url: this.url + "/api/v1/alerts?silenced=" + bSilenced + "&inhibited=false&filter=" + filter,
-                            data: query,
+                            data: queryString,
                             method: 'GET',
                             headers: { 'Content-Type': 'application/json' }
                         });
