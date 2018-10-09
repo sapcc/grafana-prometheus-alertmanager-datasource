@@ -55,8 +55,6 @@ System.register(["lodash"], function (_export, _context) {
                 _createClass(GenericDatasource, [{
                     key: "query",
                     value: function query(options) {
-                        var _this = this;
-
                         var query = this.buildQueryParameters(options);
                         query.targets = query.targets.filter(function (t) {
                             return !t.hide;
@@ -65,123 +63,132 @@ System.register(["lodash"], function (_export, _context) {
                         if (query.targets.length <= 0) {
                             return this.q.when({ data: [] });
                         }
-                        // Format data for table panel
-                        if (query.targets[0].type === "table") {
-                            var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-
-                            var _queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
-                            if (_queryString) {
-                                _queryString = this.parseQuery(_queryString);
-                            }
-                            var filter = encodeURIComponent(_queryString || "");
-                            return this.backendSrv.datasourceRequest({
-                                url: this.url + "/api/v1/alerts?silenced=" + this.silenced + "&inhibited=false&filter=" + filter,
-                                data: query,
-                                method: 'GET',
-                                headers: { 'Content-Type': 'application/json' }
-                            }).then(function (response) {
-                                var results = {
-                                    "data": [{
-                                        "rows": [],
-                                        "columns": [],
-                                        "type": "table"
-                                    }]
-                                };
-
-                                if (response.data && response.data.data && response.data.data.length) {
-                                    var columnsDict = _this.getColumnsDict(response.data.data, labelSelector);
-                                    results.data[0].columns = _this.getColumns(columnsDict);
-
-                                    for (var i = 0; i < response.data.data.length; i++) {
-                                        var row = new Array(results.data[0].columns.length).fill("");
-                                        var item = response.data.data[i];
-                                        row[0] = [Date.parse(item['startsAt'])];
-
-                                        var _iteratorNormalCompletion = true;
-                                        var _didIteratorError = false;
-                                        var _iteratorError = undefined;
-
-                                        try {
-                                            for (var _iterator = Object.keys(item['labels'])[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                                                var label = _step.value;
-
-                                                if (label in columnsDict) {
-                                                    if (label === 'severity') {
-                                                        row[columnsDict[label]] = _this.severityLevels[item['labels'][label]];
-                                                    } else {
-                                                        row[columnsDict[label]] = item['labels'][label];
-                                                    }
-                                                }
-                                            }
-                                        } catch (err) {
-                                            _didIteratorError = true;
-                                            _iteratorError = err;
-                                        } finally {
-                                            try {
-                                                if (!_iteratorNormalCompletion && _iterator.return) {
-                                                    _iterator.return();
-                                                }
-                                            } finally {
-                                                if (_didIteratorError) {
-                                                    throw _iteratorError;
-                                                }
-                                            }
-                                        }
-
-                                        var _iteratorNormalCompletion2 = true;
-                                        var _didIteratorError2 = false;
-                                        var _iteratorError2 = undefined;
-
-                                        try {
-                                            for (var _iterator2 = Object.keys(item['annotations'])[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                                                var annotation = _step2.value;
-
-                                                if (annotation in columnsDict) {
-                                                    row[columnsDict[annotation]] = item['annotations'][annotation];
-                                                }
-                                            }
-                                        } catch (err) {
-                                            _didIteratorError2 = true;
-                                            _iteratorError2 = err;
-                                        } finally {
-                                            try {
-                                                if (!_iteratorNormalCompletion2 && _iterator2.return) {
-                                                    _iterator2.return();
-                                                }
-                                            } finally {
-                                                if (_didIteratorError2) {
-                                                    throw _iteratorError2;
-                                                }
-                                            }
-                                        }
-
-                                        results.data[0].rows.push(row);
-                                    }
-                                }
-                                return results;
-                            });
-                        } else {
-                            var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
-                            if (queryString) {
-                                var _parseQuery = this.parseQuery(queryString),
-                                    queryString = _parseQuery.queryString,
-                                    bSilenced = _parseQuery.bSilenced;
-
-                                this.silenced = bSilenced === "only" || bSilenced ? true : false;;
-                            }
-                            var _filter = encodeURIComponent(queryString || "");
-                            return this.backendSrv.datasourceRequest({
-                                url: this.url + "/api/v1/alerts?silenced=" + this.silenced + "&inhibited=false&filter=" + _filter,
-                                data: query,
-                                method: 'GET',
-                                headers: { 'Content-Type': 'application/json' }
-                            }).then(function (response) {
-                                var data = this.filterSilencedOnlyData(response.data.data, this.silenced);
-                                return {
-                                    "data": [{ "datapoints": [[data.length, Date.now()]] }]
-                                };
-                            }.bind({ filterSilencedOnlyData: this.filterSilencedOnlyData, silenced: bSilenced }));
+                        var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
+                        var querySilenced = this.silenced;
+                        if (queryString) {
+                            var _parseQuery = this.parseQuery(queryString),
+                                queryString = _parseQuery.queryString,
+                                querySilenced = _parseQuery.querySilenced;
                         }
+                        var filter = encodeURIComponent(queryString || "");
+
+                        if (query.targets[0].type === "table") {
+                            // Format data for table panel
+                            return this.formatDataTable(query, filter, querySilenced);
+                        } else {
+                            return this.formatDataStat(query, querySilenced);
+                        }
+                    }
+                }, {
+                    key: "formatDataTable",
+                    value: function formatDataTable(query, filter, silenced) {
+                        var _this = this;
+
+                        var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
+                        return this.makeRequest(filter, silenced).then(function (response) {
+                            var results = {
+                                "data": [{
+                                    "rows": [],
+                                    "columns": [],
+                                    "type": "table"
+                                }]
+                            };
+
+                            if (response.data && response.data.data && response.data.data.length) {
+                                var columnsDict = _this.getColumnsDict(response.data.data, labelSelector);
+                                results.data[0].columns = _this.getColumns(columnsDict);
+
+                                for (var i = 0; i < response.data.data.length; i++) {
+                                    var row = new Array(results.data[0].columns.length).fill("");
+                                    var item = response.data.data[i];
+                                    row[0] = [Date.parse(item['startsAt'])];
+
+                                    var _iteratorNormalCompletion = true;
+                                    var _didIteratorError = false;
+                                    var _iteratorError = undefined;
+
+                                    try {
+                                        for (var _iterator = Object.keys(item['labels'])[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                                            var label = _step.value;
+
+                                            if (label in columnsDict) {
+                                                if (label === 'severity') {
+                                                    row[columnsDict[label]] = _this.severityLevels[item['labels'][label]];
+                                                } else {
+                                                    row[columnsDict[label]] = item['labels'][label];
+                                                }
+                                            }
+                                        }
+                                    } catch (err) {
+                                        _didIteratorError = true;
+                                        _iteratorError = err;
+                                    } finally {
+                                        try {
+                                            if (!_iteratorNormalCompletion && _iterator.return) {
+                                                _iterator.return();
+                                            }
+                                        } finally {
+                                            if (_didIteratorError) {
+                                                throw _iteratorError;
+                                            }
+                                        }
+                                    }
+
+                                    var _iteratorNormalCompletion2 = true;
+                                    var _didIteratorError2 = false;
+                                    var _iteratorError2 = undefined;
+
+                                    try {
+                                        for (var _iterator2 = Object.keys(item['annotations'])[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                                            var annotation = _step2.value;
+
+                                            if (annotation in columnsDict) {
+                                                row[columnsDict[annotation]] = item['annotations'][annotation];
+                                            }
+                                        }
+                                    } catch (err) {
+                                        _didIteratorError2 = true;
+                                        _iteratorError2 = err;
+                                    } finally {
+                                        try {
+                                            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                                                _iterator2.return();
+                                            }
+                                        } finally {
+                                            if (_didIteratorError2) {
+                                                throw _iteratorError2;
+                                            }
+                                        }
+                                    }
+
+                                    results.data[0].rows.push(row);
+                                }
+                            }
+                            return results;
+                        });
+                    }
+                }, {
+                    key: "formatDataStat",
+                    value: function formatDataStat(filter, silenced) {
+                        var _this2 = this;
+
+                        return this.makeRequest(filter, silenced).then(function (response) {
+                            var data = _this2.filterSilencedOnlyData(response.data.data, silenced);
+                            return {
+                                "data": [{ "datapoints": [[data.length, Date.now()]] }]
+                            };
+                        });
+                    }
+                }, {
+                    key: "makeRequest",
+                    value: function makeRequest(filter, silenced) {
+                        var bSilenced = silenced === "only" || silenced ? true : false;
+                        return this.backendSrv.datasourceRequest({
+                            url: this.url + "/api/v1/alerts?silenced=" + bSilenced + "&inhibited=false&filter=" + filter,
+                            data: query,
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
                     }
                 }, {
                     key: "parseQuery",
@@ -352,7 +359,7 @@ System.register(["lodash"], function (_export, _context) {
                 }, {
                     key: "buildQueryParameters",
                     value: function buildQueryParameters(options) {
-                        var _this2 = this;
+                        var _this3 = this;
 
                         //remove placeholder targets
                         options.targets = _.filter(options.targets, function (target) {
@@ -360,7 +367,7 @@ System.register(["lodash"], function (_export, _context) {
                         });
                         options.targetss = _.map(options.targets, function (target) {
                             return {
-                                target: _this2.templateSrv.replace(target.target),
+                                target: _this3.templateSrv.replace(target.target),
                                 expr: target.expr,
                                 refId: target.refId,
                                 hide: target.hide,

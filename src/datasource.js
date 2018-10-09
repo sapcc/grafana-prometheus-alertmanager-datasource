@@ -24,79 +24,82 @@ export class GenericDatasource {
         if (query.targets.length <= 0) {
             return this.q.when({data: []});
         }
-        // Format data for table panel
-        if(query.targets[0].type === "table"){
-            var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-
-            let queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
-            if (queryString) {
-                queryString = this.parseQuery(queryString)
-            }
-            let filter = encodeURIComponent(queryString || "");
-            return this.backendSrv.datasourceRequest({
-                    url: `${this.url}/api/v1/alerts?silenced=${this.silenced}&inhibited=false&filter=${filter}`,
-                    data: query,
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                }).then(response => {
-                    let results = {
-                        "data": [{
-                            "rows": [],
-                            "columns": [],
-                            "type": "table"
-                            }
-                        ]
-                    };
-
-                if(response.data && response.data.data && response.data.data.length) {
-                    let columnsDict = this.getColumnsDict(response.data.data, labelSelector);
-                    results.data[0].columns = this.getColumns(columnsDict);
-
-                    for (let i = 0; i < response.data.data.length; i++) {
-                        let row = new Array(results.data[0].columns.length).fill("");
-                        let item = response.data.data[i];
-                        row[0] = [Date.parse(item['startsAt'])];
-
-                        for (let label of Object.keys(item['labels'])) {
-                            if(label in columnsDict) {
-                                if(label === 'severity') {
-                                    row[columnsDict[label]] = this.severityLevels[item['labels'][label]]
-                                }
-                                else {
-                                    row[columnsDict[label]] = item['labels'][label];
-                                }
-
-                            }
-                        }
-                        for (let annotation of Object.keys(item['annotations'])) {
-                            if(annotation in columnsDict) {
-                                row[columnsDict[annotation]] = item['annotations'][annotation];
-                            }
-                        }
-                        results.data[0].rows.push(row);
-                    }
-                }
-                return results;
-            });
-        } else {
-            var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
-            if (queryString) {
-                var {queryString, bSilenced} = this.parseQuery(queryString)
-                this.silenced = bSilenced === "only" || bSilenced ? true : false;;
-            }
-            let filter = encodeURIComponent(queryString || "");
-            return this.backendSrv.datasourceRequest({
-                url: `${this.url}/api/v1/alerts?silenced=${this.silenced}&inhibited=false&filter=${filter}`,
-                data: query,
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
-            }).then(function(response) {
-                let data = this.filterSilencedOnlyData(response.data.data, this.silenced)
-                return {
-                    "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
-                }
-            }.bind({filterSilencedOnlyData: this.filterSilencedOnlyData, silenced: bSilenced}));
+        var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
+        var querySilenced = this.silenced;
+        if (queryString) {
+            var {queryString, querySilenced} = this.parseQuery(queryString)
         }
+        let filter = encodeURIComponent(queryString || "");
+        
+        if(query.targets[0].type === "table"){
+            // Format data for table panel
+            return this.formatDataTable(query, filter, querySilenced);
+        } else {
+            return this.formatDataStat(query, querySilenced);
+        }
+    }
+
+    formatDataTable(query, filter, silenced) {
+        let labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
+        return this.makeRequest(filter, silenced).then(response => {
+                let results = {
+                    "data": [{
+                        "rows": [],
+                        "columns": [],
+                        "type": "table"
+                        }
+                    ]
+                };
+
+            if(response.data && response.data.data && response.data.data.length) {
+                let columnsDict = this.getColumnsDict(response.data.data, labelSelector);
+                results.data[0].columns = this.getColumns(columnsDict);
+
+                for (let i = 0; i < response.data.data.length; i++) {
+                    let row = new Array(results.data[0].columns.length).fill("");
+                    let item = response.data.data[i];
+                    row[0] = [Date.parse(item['startsAt'])];
+
+                    for (let label of Object.keys(item['labels'])) {
+                        if(label in columnsDict) {
+                            if(label === 'severity') {
+                                row[columnsDict[label]] = this.severityLevels[item['labels'][label]]
+                            }
+                            else {
+                                row[columnsDict[label]] = item['labels'][label];
+                            }
+
+                        }
+                    }
+                    for (let annotation of Object.keys(item['annotations'])) {
+                        if(annotation in columnsDict) {
+                            row[columnsDict[annotation]] = item['annotations'][annotation];
+                        }
+                    }
+                    results.data[0].rows.push(row);
+                }
+            }
+            return results;
+        });
+    }
+
+    formatDataStat(filter, silenced) {
+        return this.makeRequest(filter, silenced).then(response => {
+            let data = this.filterSilencedOnlyData(response.data.data, silenced)
+            return {
+                "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
+            }
+        });
+    }
+
+    makeRequest(filter, silenced) {
+        let bSilenced = silenced === "only" || silenced ? true : false;
+        return this.backendSrv.datasourceRequest({
+            url: `${this.url}/api/v1/alerts?silenced=${bSilenced}&inhibited=false&filter=${filter}`,
+            data: query,
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
 
     parseQuery(queryString) {
