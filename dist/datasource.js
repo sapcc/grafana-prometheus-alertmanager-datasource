@@ -173,7 +173,7 @@ System.register(["lodash"], function (_export, _context) {
                                 method: 'GET',
                                 headers: { 'Content-Type': 'application/json' }
                             }).then(function (response) {
-                                var data = _this.filterSilencedOnlyData(response.data.data);
+                                var data = _this.filterSilencedOnlyData(response.data.data, _this.silenced);
                                 return {
                                     "data": [{ "datapoints": [[data.length, Date.now()]] }]
                                 };
@@ -192,7 +192,17 @@ System.register(["lodash"], function (_export, _context) {
                             if (q.includes("silenced=")) {
                                 var r = silencedRegex.exec(q);
                                 if (r != null) {
-                                    _this2.silenced = r[1];
+                                    bSilenced = false;
+                                    try {
+                                        bSilenced = JSON.parse(r[1]);
+                                    } catch (err) {
+                                        if (r[1] === "only") {
+                                            bSilenced = "only";
+                                        } else {
+                                            console.error("error casting silenced value", err);
+                                        }
+                                    }
+                                    _this2.silenced = bSilenced;
                                 }
                                 return false;
                             } else {
@@ -205,8 +215,8 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "filterSilencedOnlyData",
-                    value: function filterSilencedOnlyData(data) {
-                        if (this.silenced !== "only") {
+                    value: function filterSilencedOnlyData(data, silenced) {
+                        if (silenced !== "only") {
                             return data;
                         }
                         return data.filter(function (d) {

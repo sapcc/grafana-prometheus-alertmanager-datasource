@@ -91,7 +91,7 @@ export class GenericDatasource {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             }).then(response => {
-                let data = this.filterSilencedOnlyData(response.data.data)
+                let data = this.filterSilencedOnlyData(response.data.data, this.silenced)
                 return {
                     "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
                 }
@@ -107,7 +107,17 @@ export class GenericDatasource {
             if (q.includes("silenced=")) {
                 let r = silencedRegex.exec(q);
                 if (r != null) {
-                    this.silenced = r[1];
+                    bSilenced = false;
+                    try {
+                        bSilenced = JSON.parse(r[1]);
+                    }catch(err) {
+                        if (r[1] === "only") {
+                            bSilenced = "only";
+                        } else {
+                            console.error("error casting silenced value", err)
+                        }
+                    }
+                    this.silenced = bSilenced;
                 }
                 return false
             } else {
@@ -119,8 +129,8 @@ export class GenericDatasource {
         return queryString;
     }
 
-    filterSilencedOnlyData(data) {
-        if (this.silenced !== "only") {
+    filterSilencedOnlyData(data, silenced) {
+        if (silenced !== "only") {
             return data;
         }
         return data.filter(d => {
