@@ -192,7 +192,7 @@ System.register(["lodash"], function (_export, _context) {
                             if (q.includes("silenced=")) {
                                 var r = silencedRegex.exec(q);
                                 if (r != null) {
-                                    bSilenced = false;
+                                    var bSilenced = false;
                                     try {
                                         bSilenced = JSON.parse(r[1]);
                                     } catch (err) {

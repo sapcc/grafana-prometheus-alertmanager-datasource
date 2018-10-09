@@ -107,7 +107,7 @@ export class GenericDatasource {
             if (q.includes("silenced=")) {
                 let r = silencedRegex.exec(q);
                 if (r != null) {
-                    bSilenced = false;
+                    let bSilenced = false;
                     try {
                         bSilenced = JSON.parse(r[1]);
                     }catch(err) {
