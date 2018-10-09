@@ -69,11 +69,11 @@ System.register(["lodash"], function (_export, _context) {
                         if (query.targets[0].type === "table") {
                             var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
 
-                            var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
-                            if (queryString) {
-                                queryString = this.parseQuery(queryString);
+                            var _queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
+                            if (_queryString) {
+                                _queryString = this.parseQuery(_queryString);
                             }
-                            var filter = encodeURIComponent(queryString || "");
+                            var filter = encodeURIComponent(_queryString || "");
                             return this.backendSrv.datasourceRequest({
                                 url: this.url + "/api/v1/alerts?silenced=" + this.silenced + "&inhibited=false&filter=" + filter,
                                 data: query,
@@ -161,38 +161,38 @@ System.register(["lodash"], function (_export, _context) {
                                 return results;
                             });
                         } else {
-                            var _queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
-                            if (_queryString) {
-                                _queryString = this.parseQuery(_queryString);
+                            var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
+                            if (queryString) {
+                                var _parseQuery = this.parseQuery(queryString),
+                                    queryString = _parseQuery.queryString,
+                                    bSilenced = _parseQuery.bSilenced;
+
+                                this.silenced = bSilenced === "only" || bSilenced ? true : false;;
                             }
-                            var _filter = encodeURIComponent(_queryString || "");
-                            var silenced = this.silenced === "only" || this.silenced ? true : false;
+                            var _filter = encodeURIComponent(queryString || "");
                             return this.backendSrv.datasourceRequest({
-                                url: this.url + "/api/v1/alerts?silenced=" + silenced + "&inhibited=false&filter=" + _filter,
+                                url: this.url + "/api/v1/alerts?silenced=" + this.silenced + "&inhibited=false&filter=" + _filter,
                                 data: query,
                                 method: 'GET',
                                 headers: { 'Content-Type': 'application/json' }
                             }).then(function (response) {
-                                var data = _this.filterSilencedOnlyData(response.data.data, _this.silenced);
+                                var data = this.filterSilencedOnlyData(response.data.data, this);
                                 return {
                                     "data": [{ "datapoints": [[data.length, Date.now()]] }]
                                 };
-                            });
+                            }.bind(bSilenced));
                         }
                     }
                 }, {
                     key: "parseQuery",
                     value: function parseQuery(queryString) {
-                        var _this2 = this;
-
                         var silencedRegex = /=(.*)/;
                         var aQueries = queryString.split(",");
-                        this.silenced = false;
+                        var bSilenced = false;
                         aQueries = aQueries.filter(function (q) {
                             if (q.includes("silenced=")) {
                                 var r = silencedRegex.exec(q);
                                 if (r != null) {
-                                    var bSilenced = false;
                                     try {
                                         bSilenced = JSON.parse(r[1]);
                                     } catch (err) {
@@ -202,7 +202,6 @@ System.register(["lodash"], function (_export, _context) {
                                             console.error("error casting silenced value", err);
                                         }
                                     }
-                                    _this2.silenced = bSilenced;
                                 }
                                 return false;
                             } else {
@@ -211,7 +210,7 @@ System.register(["lodash"], function (_export, _context) {
                         });
                         queryString = aQueries.join(",");
                         queryString = queryString.replace(/\s/g, "");
-                        return queryString;
+                        return { queryString: queryString, bSilenced: bSilenced };
                     }
                 }, {
                     key: "filterSilencedOnlyData",
@@ -353,7 +352,7 @@ System.register(["lodash"], function (_export, _context) {
                 }, {
                     key: "buildQueryParameters",
                     value: function buildQueryParameters(options) {
-                        var _this3 = this;
+                        var _this2 = this;
 
                         //remove placeholder targets
                         options.targets = _.filter(options.targets, function (target) {
@@ -361,7 +360,7 @@ System.register(["lodash"], function (_export, _context) {
                         });
                         options.targetss = _.map(options.targets, function (target) {
                             return {
-                                target: _this3.templateSrv.replace(target.target),
+                                target: _this2.templateSrv.replace(target.target),
                                 expr: target.expr,
                                 refId: target.refId,
                                 hide: target.hide,

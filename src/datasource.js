@@ -79,35 +79,34 @@ export class GenericDatasource {
                 return results;
             });
         } else {
-            let queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
+            var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
             if (queryString) {
-                queryString = this.parseQuery(queryString)
+                var {queryString, bSilenced} = this.parseQuery(queryString)
+                this.silenced = bSilenced === "only" || bSilenced ? true : false;;
             }
             let filter = encodeURIComponent(queryString || "");
-            let silenced = this.silenced === "only" || this.silenced ? true : false;
             return this.backendSrv.datasourceRequest({
-                url: `${this.url}/api/v1/alerts?silenced=${silenced}&inhibited=false&filter=${filter}`,
+                url: `${this.url}/api/v1/alerts?silenced=${this.silenced}&inhibited=false&filter=${filter}`,
                 data: query,
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
-            }).then(response => {
-                let data = this.filterSilencedOnlyData(response.data.data, this.silenced)
+            }).then(function(response) {
+                let data = this.filterSilencedOnlyData(response.data.data, this)
                 return {
                     "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
                 }
-            });
+            }.bind(bSilenced));
         }
     }
 
     parseQuery(queryString) {
         const silencedRegex = /=(.*)/;
         let aQueries = queryString.split(",");
-        this.silenced = false;
+        let bSilenced = false;
         aQueries = aQueries.filter(q => {
             if (q.includes("silenced=")) {
                 let r = silencedRegex.exec(q);
                 if (r != null) {
-                    let bSilenced = false;
                     try {
                         bSilenced = JSON.parse(r[1]);
                     }catch(err) {
@@ -117,7 +116,6 @@ export class GenericDatasource {
                             console.error("error casting silenced value", err)
                         }
                     }
-                    this.silenced = bSilenced;
                 }
                 return false
             } else {
@@ -126,7 +124,7 @@ export class GenericDatasource {
         });
         queryString = aQueries.join(",")
         queryString = queryString.replace(/\s/g, "");
-        return queryString;
+        return {queryString, bSilenced};
     }
 
     filterSilencedOnlyData(data, silenced) {
