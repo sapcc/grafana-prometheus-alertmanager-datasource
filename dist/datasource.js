@@ -195,16 +195,16 @@ System.register(["lodash"], function (_export, _context) {
                     value: function parseQuery(queryString) {
                         var silencedRegex = /=(.*)/;
                         var aQueries = queryString.split(",");
-                        var bSilenced = false;
+                        var querySilenced = false;
                         aQueries = aQueries.filter(function (q) {
                             if (q.includes("silenced=")) {
                                 var r = silencedRegex.exec(q);
                                 if (r != null) {
                                     try {
-                                        bSilenced = JSON.parse(r[1]);
+                                        querySilenced = JSON.parse(r[1]);
                                     } catch (err) {
                                         if (r[1] === "only") {
-                                            bSilenced = "only";
+                                            querySilenced = "only";
                                         } else {
                                             console.error("error casting silenced value", err);
                                         }
@@ -217,7 +217,7 @@ System.register(["lodash"], function (_export, _context) {
                         });
                         queryString = aQueries.join(",");
                         queryString = queryString.replace(/\s/g, "");
-                        return { queryString: queryString, bSilenced: bSilenced };
+                        return { queryString: queryString, querySilenced: querySilenced };
                     }
                 }, {
                     key: "filterSilencedOnlyData",

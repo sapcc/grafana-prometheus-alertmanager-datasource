@@ -105,16 +105,16 @@ export class GenericDatasource {
     parseQuery(queryString) {
         const silencedRegex = /=(.*)/;
         let aQueries = queryString.split(",");
-        let bSilenced = false;
+        let querySilenced = false;
         aQueries = aQueries.filter(q => {
             if (q.includes("silenced=")) {
                 let r = silencedRegex.exec(q);
                 if (r != null) {
                     try {
-                        bSilenced = JSON.parse(r[1]);
+                        querySilenced = JSON.parse(r[1]);
                     }catch(err) {
                         if (r[1] === "only") {
-                            bSilenced = "only";
+                            querySilenced = "only";
                         } else {
                             console.error("error casting silenced value", err)
                         }
@@ -127,7 +127,7 @@ export class GenericDatasource {
         });
         queryString = aQueries.join(",")
         queryString = queryString.replace(/\s/g, "");
-        return {queryString, bSilenced};
+        return {queryString, querySilenced};
     }
 
     filterSilencedOnlyData(data, silenced) {
