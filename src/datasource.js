@@ -51,12 +51,13 @@ export class GenericDatasource {
                 };
 
             if(response.data && response.data.data && response.data.data.length) {
-                let columnsDict = this.getColumnsDict(response.data.data, labelSelector);
+                let data = this.filterSilencedOnlyData(response.data.data, silenced)
+                let columnsDict = this.getColumnsDict(data, labelSelector);
                 results.data[0].columns = this.getColumns(columnsDict);
 
-                for (let i = 0; i < response.data.data.length; i++) {
+                for (let i = 0; i < data.length; i++) {
                     let row = new Array(results.data[0].columns.length).fill("");
-                    let item = response.data.data[i];
+                    let item = data[i];
                     row[0] = [Date.parse(item['startsAt'])];
 
                     for (let label of Object.keys(item['labels'])) {

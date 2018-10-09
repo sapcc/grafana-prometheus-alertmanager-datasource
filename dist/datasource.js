@@ -94,12 +94,13 @@ System.register(["lodash"], function (_export, _context) {
                             };
 
                             if (response.data && response.data.data && response.data.data.length) {
-                                var columnsDict = _this.getColumnsDict(response.data.data, labelSelector);
+                                var data = _this.filterSilencedOnlyData(response.data.data, silenced);
+                                var columnsDict = _this.getColumnsDict(data, labelSelector);
                                 results.data[0].columns = _this.getColumns(columnsDict);
 
-                                for (var i = 0; i < response.data.data.length; i++) {
+                                for (var i = 0; i < data.length; i++) {
                                     var row = new Array(results.data[0].columns.length).fill("");
-                                    var item = response.data.data[i];
+                                    var item = data[i];
                                     row[0] = [Date.parse(item['startsAt'])];
 
                                     var _iteratorNormalCompletion = true;
