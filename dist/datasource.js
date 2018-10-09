@@ -84,7 +84,7 @@ System.register(["lodash"], function (_export, _context) {
                         var _this = this;
 
                         var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-                        return this.makeRequest(queryString, silenced).then(function (response) {
+                        return this.makeRequest(query, queryString, silenced).then(function (response) {
                             var results = {
                                 "data": [{
                                     "rows": [],

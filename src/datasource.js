@@ -40,7 +40,7 @@ export class GenericDatasource {
 
     formatDataTable(query, queryString, silenced) {
         let labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-        return this.makeRequest(queryString, silenced).then(response => {
+        return this.makeRequest(query, queryString, silenced).then(response => {
                 let results = {
                     "data": [{
                         "rows": [],
