@@ -80,100 +80,115 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "formatDataTable",
-                    value: function formatDataTable(query, queryString, silenced) {
-                        var _this = this;
-
+                    value: async function formatDataTable(query, queryString, silenced) {
                         var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-                        return this.makeRequest(query, queryString, silenced).then(function (response) {
-                            var results = {
-                                "data": [{
-                                    "rows": [],
-                                    "columns": [],
-                                    "type": "table"
-                                }]
-                            };
+                        var response = await this.makeRequest(query, queryString, silenced);
+                        var results = {
+                            "data": [{
+                                "rows": [],
+                                "columns": [],
+                                "type": "table"
+                            }]
+                        };
 
-                            if (response.data && response.data.data && response.data.data.length) {
-                                var data = _this.filterSilencedOnlyData(response.data.data, silenced);
-                                var columnsDict = _this.getColumnsDict(data, labelSelector);
-                                results.data[0].columns = _this.getColumns(columnsDict);
+                        if (response.data && response.data.data && response.data.data.length) {
+                            var data = this.filterSilencedOnlyData(response.data.data, silenced);
+                            var columnsDict = this.getColumnsDict(data, labelSelector);
+                            results.data[0].columns = this.getColumns(columnsDict);
 
-                                for (var i = 0; i < data.length; i++) {
-                                    var row = new Array(results.data[0].columns.length).fill("");
-                                    var item = data[i];
-                                    row[0] = [Date.parse(item['startsAt'])];
+                            for (var i = 0; i < data.length; i++) {
+                                var row = new Array(results.data[0].columns.length).fill("");
+                                var item = data[i];
 
-                                    var _iteratorNormalCompletion = true;
-                                    var _didIteratorError = false;
-                                    var _iteratorError = undefined;
+                                var _iteratorNormalCompletion = true;
+                                var _didIteratorError = false;
+                                var _iteratorError = undefined;
 
-                                    try {
-                                        for (var _iterator = Object.keys(item['labels'])[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                                            var label = _step.value;
+                                try {
+                                    for (var _iterator = Object.keys(item['labels']).concat(Object.keys(item)).concat(Object.keys(item['status']))[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                                        var label = _step.value;
 
-                                            if (label in columnsDict) {
-                                                if (label === 'severity') {
-                                                    row[columnsDict[label]] = _this.severityLevels[item['labels'][label]];
-                                                } else {
+                                        if (label in columnsDict) {
+                                            switch (label) {
+                                                case 'severity':
+                                                    row[columnsDict[label]] = this.severityLevels[item['labels'][label]];
+                                                    break;
+                                                case 'startsAt':
+                                                    row[columnsDict[label]] = [Date.parse(item['startsAt'])];
+                                                    break;
+                                                case 'endsAt':
+                                                    row[columnsDict[label]] = item['endsAt'];
+                                                    break;
+                                                case 'silencedBy':
+                                                    var silencedByID = item['status']['silencedBy'][0];
+                                                    if (silencedByID) {
+                                                        try {
+                                                            var silencedBy = await this.getSilencedByUser(silencedByID);
+                                                            row[columnsDict[label]] = silencedBy.data.data.createdBy;;
+                                                        } catch (err) {
+                                                            console.error(err);
+                                                        }
+                                                    }
+                                                    break;
+                                                default:
                                                     row[columnsDict[label]] = item['labels'][label];
-                                                }
-                                            }
-                                        }
-                                    } catch (err) {
-                                        _didIteratorError = true;
-                                        _iteratorError = err;
-                                    } finally {
-                                        try {
-                                            if (!_iteratorNormalCompletion && _iterator.return) {
-                                                _iterator.return();
-                                            }
-                                        } finally {
-                                            if (_didIteratorError) {
-                                                throw _iteratorError;
                                             }
                                         }
                                     }
-
-                                    var _iteratorNormalCompletion2 = true;
-                                    var _didIteratorError2 = false;
-                                    var _iteratorError2 = undefined;
-
+                                } catch (err) {
+                                    _didIteratorError = true;
+                                    _iteratorError = err;
+                                } finally {
                                     try {
-                                        for (var _iterator2 = Object.keys(item['annotations'])[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                                            var annotation = _step2.value;
-
-                                            if (annotation in columnsDict) {
-                                                row[columnsDict[annotation]] = item['annotations'][annotation];
-                                            }
+                                        if (!_iteratorNormalCompletion && _iterator.return) {
+                                            _iterator.return();
                                         }
-                                    } catch (err) {
-                                        _didIteratorError2 = true;
-                                        _iteratorError2 = err;
                                     } finally {
-                                        try {
-                                            if (!_iteratorNormalCompletion2 && _iterator2.return) {
-                                                _iterator2.return();
-                                            }
-                                        } finally {
-                                            if (_didIteratorError2) {
-                                                throw _iteratorError2;
-                                            }
+                                        if (_didIteratorError) {
+                                            throw _iteratorError;
                                         }
                                     }
-
-                                    results.data[0].rows.push(row);
                                 }
+
+                                var _iteratorNormalCompletion2 = true;
+                                var _didIteratorError2 = false;
+                                var _iteratorError2 = undefined;
+
+                                try {
+                                    for (var _iterator2 = Object.keys(item['annotations'])[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                                        var annotation = _step2.value;
+
+                                        if (annotation in columnsDict) {
+                                            row[columnsDict[annotation]] = item['annotations'][annotation];
+                                        }
+                                    }
+                                } catch (err) {
+                                    _didIteratorError2 = true;
+                                    _iteratorError2 = err;
+                                } finally {
+                                    try {
+                                        if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                                            _iterator2.return();
+                                        }
+                                    } finally {
+                                        if (_didIteratorError2) {
+                                            throw _iteratorError2;
+                                        }
+                                    }
+                                }
+
+                                results.data[0].rows.push(row);
                             }
-                            return results;
-                        });
+                        }
+                        return results;
                     }
                 }, {
                     key: "formatDataStat",
                     value: function formatDataStat(query, queryString, silenced) {
-                        var _this2 = this;
+                        var _this = this;
 
                         return this.makeRequest(query, queryString, silenced).then(function (response) {
-                            var data = _this2.filterSilencedOnlyData(response.data.data, silenced);
+                            var data = _this.filterSilencedOnlyData(response.data.data, silenced);
                             return {
                                 "data": [{ "datapoints": [[data.length, Date.now()]] }]
                             };
@@ -187,6 +202,15 @@ System.register(["lodash"], function (_export, _context) {
                         return this.backendSrv.datasourceRequest({
                             url: this.url + "/api/v1/alerts?silenced=" + bSilenced + "&inhibited=false&filter=" + filter,
                             data: query,
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    }
+                }, {
+                    key: "getSilencedByUser",
+                    value: function getSilencedByUser(id) {
+                        return this.backendSrv.datasourceRequest({
+                            url: this.url + "/api/v1/silence/" + id,
                             method: 'GET',
                             headers: { 'Content-Type': 'application/json' }
                         });
@@ -236,7 +260,7 @@ System.register(["lodash"], function (_export, _context) {
                 }, {
                     key: "getColumns",
                     value: function getColumns(columnsDict) {
-                        var columns = [{ text: "Time", type: "time" }];
+                        var columns = [];
                         var _iteratorNormalCompletion3 = true;
                         var _didIteratorError3 = false;
                         var _iteratorError3 = undefined;
@@ -245,7 +269,13 @@ System.register(["lodash"], function (_export, _context) {
                             for (var _iterator3 = Object.keys(columnsDict)[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
                                 var column = _step3.value;
 
-                                columns.push({ text: column, type: "string" });
+                                switch (column) {
+                                    case "startsAt":
+                                        columns.push({ text: column, type: "time" });
+                                        break;
+                                    default:
+                                        columns.push({ text: column, type: "string" });
+                                }
                             }
                         } catch (err) {
                             _didIteratorError3 = true;
@@ -278,7 +308,7 @@ System.register(["lodash"], function (_export, _context) {
                 }, {
                     key: "getColumnsDict",
                     value: function getColumnsDict(data, labelSelector) {
-                        var index = 1; // 0 is the data column
+                        var index = 0;
                         var columnsDict = {};
                         for (var i = 0; i < data.length; i++) {
                             for (var labelIndex = 0; labelIndex < labelSelector.length; labelIndex++) {
@@ -361,7 +391,7 @@ System.register(["lodash"], function (_export, _context) {
                 }, {
                     key: "buildQueryParameters",
                     value: function buildQueryParameters(options) {
-                        var _this3 = this;
+                        var _this2 = this;
 
                         //remove placeholder targets
                         options.targets = _.filter(options.targets, function (target) {
@@ -369,7 +399,7 @@ System.register(["lodash"], function (_export, _context) {
                         });
                         options.targetss = _.map(options.targets, function (target) {
                             return {
-                                target: _this3.templateSrv.replace(target.target),
+                                target: _this2.templateSrv.replace(target.target),
                                 expr: target.expr,
                                 refId: target.refId,
                                 hide: target.hide,
