@@ -17,77 +17,97 @@ export class GenericDatasource {
     this.templateSrv = templateSrv;
   }
 
-    query(options) {
+    async query(options) {
         let query = this.buildQueryParameters(options);
         query.targets = query.targets.filter(t => !t.hide);
 
         if (query.targets.length <= 0) {
             return this.q.when({data: []});
         }
-        var queryString = this.templateSrv.replace(query.targets[0].expr, options.scopedVars);
-        var querySilenced = this.silenced;
-        if (queryString) {
-            var {queryString, querySilenced} = this.parseQuery(queryString)
+        let results = {
+            "data": []
         }
-        
-        if(query.targets[0].type === "table"){
-            // Format data for table panel
-            return this.formatDataTable(query, queryString, querySilenced);
-        } else {
-            return this.formatDataStat(query, queryString, querySilenced);
-        }
-    }
-
-    formatDataTable(query, queryString, silenced) {
-        let labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-        return this.makeRequest(query, queryString, silenced).then(response => {
-                let results = {
-                    "data": [{
-                        "rows": [],
-                        "columns": [],
-                        "type": "table"
-                        }
-                    ]
-                };
-
-            if(response.data && response.data.data && response.data.data.length) {
-                let data = this.filterSilencedOnlyData(response.data.data, silenced)
-                let columnsDict = this.getColumnsDict(data, labelSelector);
-                results.data[0].columns = this.getColumns(columnsDict);
-
-                for (let i = 0; i < data.length; i++) {
-                    let row = new Array(results.data[0].columns.length).fill("");
-                    let item = data[i];
-                    row[0] = [Date.parse(item['startsAt'])];
-
-                    for (let label of Object.keys(item['labels'])) {
-                        if(label in columnsDict) {
-                            if(label === 'severity') {
-                                row[columnsDict[label]] = this.severityLevels[item['labels'][label]]
-                            }
-                            else {
-                                row[columnsDict[label]] = item['labels'][label];
-                            }
-
-                        }
-                    }
-                    for (let annotation of Object.keys(item['annotations'])) {
-                        if(annotation in columnsDict) {
-                            row[columnsDict[annotation]] = item['annotations'][annotation];
-                        }
-                    }
-                    results.data[0].rows.push(row);
-                }
+        let queryPromises = [];
+        query.targets.forEach(target => {
+            var queryString = this.templateSrv.replace(target.expr, options.scopedVars);
+            var querySilenced = this.silenced;
+            if (queryString) {
+                var {queryString, querySilenced} = this.parseQuery(queryString)
             }
-            return results;
+            if(target.type === "table"){
+                // Format data for table panel
+                queryPromises.push(this.formatDataTable(query, queryString, querySilenced));
+            } else {
+                queryPromises.push(this.formatDataStat(query, queryString, querySilenced, target.alias));
+            }
         });
+        let result = await Promise.all(queryPromises);
+        results.data = result;
+        return results;
     }
 
-    formatDataStat(query, queryString, silenced) {
+    async formatDataTable(query, queryString, silenced) {
+        let labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
+        const response = await this.makeRequest(query, queryString, silenced);
+        let results = {
+            "rows": [],
+            "columns": [],
+            "type": "table"
+        };
+
+        if(response.data && response.data.data && response.data.data.length) {
+            let data = this.filterSilencedOnlyData(response.data.data, silenced)
+            let columnsDict = this.getColumnsDict(data, labelSelector);
+            results.columns = this.getColumns(columnsDict);
+
+            for (let i = 0; i < data.length; i++) {
+                let row = new Array(results.columns.length).fill("");
+                let item = data[i];
+
+                for (let label of Object.keys(item['labels']).concat(Object.keys(item)).concat(Object.keys(item['status'])) ) {
+                    if(label in columnsDict) {
+                        switch(label) {
+                            case 'severity':
+                                row[columnsDict[label]] = this.severityLevels[item['labels'][label]];
+                                break;
+                            case 'startsAt':
+                                row[columnsDict[label]] = [Date.parse(item['startsAt'])];
+                                break;
+                            case 'endsAt':
+                                row[columnsDict[label]] = item['endsAt'];
+                                break;
+                            case 'silencedBy':
+                                const silencedByID = item['status']['silencedBy'][0];
+                                if (silencedByID) {
+                                    try {
+                                        const silencedBy = await this.getSilencedByUser(silencedByID);
+                                        row[columnsDict[label]] = silencedBy.data.data.createdBy;;
+                                    } catch(err) {
+                                        console.error(err)
+                                    }
+                                }
+                                break;
+                            default:
+                                row[columnsDict[label]] = item['labels'][label];
+                        }
+                    }
+                }
+                for (let annotation of Object.keys(item['annotations'])) {
+                    if(annotation in columnsDict) {
+                        row[columnsDict[annotation]] = item['annotations'][annotation];
+                    }
+                }
+                results.rows.push(row);
+            }
+        }
+        return results;
+    }
+
+    formatDataStat(query, queryString, silenced, alias) {
         return this.makeRequest(query, queryString, silenced).then(response => {
             let data = this.filterSilencedOnlyData(response.data.data, silenced)
             return {
-                "data": [{ "datapoints": [ [data.length, Date.now()] ]}]
+                "datapoints": [ [data.length, Date.now()] ], "target": alias
             }
         });
     }
@@ -98,6 +118,14 @@ export class GenericDatasource {
         return this.backendSrv.datasourceRequest({
             url: `${this.url}/api/v1/alerts?silenced=${bSilenced}&inhibited=false&filter=${filter}`,
             data: query,
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    getSilencedByUser(id) {
+        return this.backendSrv.datasourceRequest({
+            url: `${this.url}/api/v1/silence/${id}`,
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -144,9 +172,16 @@ export class GenericDatasource {
     }
 
     getColumns(columnsDict) {
-        let columns =  [{ text: "Time", type: "time" }];
+        let columns =  [];
         for(let column of Object.keys(columnsDict)) {
-            columns.push({ text: column, type: "string" })
+            switch(column) {
+                case "startsAt":
+                    columns.push({ text: column, type: "time" });
+                    break;
+                default:
+                    columns.push({ text: column, type: "string" });
+            }
+            
         }
         return columns;
     }
@@ -164,7 +199,7 @@ export class GenericDatasource {
 
     // Creates a column index dictionary in to assist in data row construction
     getColumnsDict(data, labelSelector) {
-        let index = 1; // 0 is the data column
+        let index = 0;
         let columnsDict = {};
         for (let i = 0; i < data.length; i++) {
             for (let labelIndex = 0; labelIndex < labelSelector.length; labelIndex++) {

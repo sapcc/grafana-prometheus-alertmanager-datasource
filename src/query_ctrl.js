@@ -27,6 +27,8 @@ export class GenericDatasourceQueryCtrl extends QueryCtrl {
   }
 
   onChangeInternal() {
+    //needed for the status panel control! Otherwise m.target == measurement.target will always return true! error => There are multiple metrics with the same alias. Please give each metric a unique name.
+    delete this.target.target;
     this.panelCtrl.refresh(); // Asks the panel to refresh data.
   }
 }

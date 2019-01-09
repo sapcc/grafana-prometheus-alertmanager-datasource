@@ -1,7 +1,9 @@
-<query-editor-row query-ctrl="ctrl" class="generic-datasource-query-row" has-text-edit-mode="true">
+<query-editor-row query-ctrl="ctrl" class="generic-datasource-query-row" has-text-edit-mode="false">
   <div class="gf-form-inline">
     <div class="gf-form gf-form--grow">
-      <textarea rows="3" class="gf-form-input" ng-model="ctrl.target.expr" spellcheck="false" placeholder="query expression" data-min-length=0 data-items=100 ng-model-onblur ng-change="ctrl.onChangeInternal()"></textarea>
+      <code-editor content="ctrl.target.expr" datasource="ctrl.datasource" on-change="ctrl.onChangeInternal()"
+      data-mode="prometheus" code-editor-focus="ctrl.isLastQuery">
+    </code-editor>
     </div>
   </div>
 
