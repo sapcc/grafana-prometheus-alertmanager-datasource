@@ -20,8 +20,8 @@
       {"name": "Github", "url": "https://github.com/sapcc/grafana-prometheus-alertmanager-datasource"},
       {"name": "Apache License 2.0", "url": "https://raw.githubusercontent.com/sapcc/grafana-prometheus-alertmanager-datasource/master/LICENSE"}
     ],
-    "version": "0.1.0",
-    "updated": "2019-01-09"
+    "version": "0.1.1",
+    "updated": "2019-01-10"
   },
   "dependencies": {
     "grafanaVersion": "4.x.x",

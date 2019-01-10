@@ -50,6 +50,11 @@ System.register(["lodash"], function (_export, _context) {
                     this.q = $q;
                     this.backendSrv = backendSrv;
                     this.templateSrv = templateSrv;
+
+                    this.filters = {
+                        "silencedBy": this.silenced,
+                        "acknowledgedBy": false
+                    };
                 }
 
                 _createClass(GenericDatasource, [{
@@ -69,19 +74,24 @@ System.register(["lodash"], function (_export, _context) {
                             "data": []
                         };
                         var queryPromises = [];
+
                         query.targets.forEach(function (target) {
                             var queryString = _this.templateSrv.replace(target.expr, options.scopedVars);
-                            var querySilenced = _this.silenced;
+                            var filters = Object.assign({}, _this.filters);
                             if (queryString) {
-                                var _parseQuery = _this.parseQuery(queryString),
-                                    queryString = _parseQuery.queryString,
-                                    querySilenced = _parseQuery.querySilenced;
+                                for (var filter in filters) {
+                                    var _parseAndFilterQuery = _this.parseAndFilterQuery(queryString, filter),
+                                        queryString = _parseAndFilterQuery.queryString,
+                                        filterValue = _parseAndFilterQuery.filterValue;
+
+                                    filters[filter] = filterValue;
+                                };
                             }
                             if (target.type === "table") {
                                 // Format data for table panel
-                                queryPromises.push(_this.formatDataTable(query, queryString, querySilenced));
+                                queryPromises.push(_this.formatDataTable(query, queryString, filters));
                             } else {
-                                queryPromises.push(_this.formatDataStat(query, queryString, querySilenced, target.alias));
+                                queryPromises.push(_this.formatDataStat(query, queryString, filters, target.alias));
                             }
                         });
                         var result = await Promise.all(queryPromises);
@@ -90,9 +100,9 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "formatDataTable",
-                    value: async function formatDataTable(query, queryString, silenced) {
+                    value: async function formatDataTable(query, queryString, filters) {
                         var labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-                        var response = await this.makeRequest(query, queryString, silenced);
+                        var response = await this.makeRequest(query, queryString, filters.silencedBy);
                         var results = {
                             "rows": [],
                             "columns": [],
@@ -100,7 +110,10 @@ System.register(["lodash"], function (_export, _context) {
                         };
 
                         if (response.data && response.data.data && response.data.data.length) {
-                            var data = this.filterSilencedOnlyData(response.data.data, silenced);
+                            var data = response.data.data;
+                            for (var filter in filters) {
+                                data = this.filterOnlyData(data, filter, filters[filter]);
+                            };
                             var columnsDict = this.getColumnsDict(data, labelSelector);
                             results.columns = this.getColumns(columnsDict);
 
@@ -132,7 +145,7 @@ System.register(["lodash"], function (_export, _context) {
                                                     if (silencedByID) {
                                                         try {
                                                             var silencedBy = await this.getSilencedByUser(silencedByID);
-                                                            row[columnsDict[label]] = silencedBy.data.data.createdBy;;
+                                                            row[columnsDict[label]] = silencedBy.data.data.createdBy;
                                                         } catch (err) {
                                                             console.error(err);
                                                         }
@@ -192,11 +205,14 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "formatDataStat",
-                    value: function formatDataStat(query, queryString, silenced, alias) {
+                    value: function formatDataStat(query, queryString, filters, alias) {
                         var _this2 = this;
 
-                        return this.makeRequest(query, queryString, silenced).then(function (response) {
-                            var data = _this2.filterSilencedOnlyData(response.data.data, silenced);
+                        return this.makeRequest(query, queryString, filters.silencedBy).then(function (response) {
+                            var data = response.data.data;
+                            for (var filter in filters) {
+                                data = _this2.filterOnlyData(data, filter, filters[filter]);
+                            };
                             return {
                                 "datapoints": [[data.length, Date.now()]], "target": alias
                             };
@@ -224,20 +240,21 @@ System.register(["lodash"], function (_export, _context) {
                         });
                     }
                 }, {
-                    key: "parseQuery",
-                    value: function parseQuery(queryString) {
-                        var silencedRegex = /=(.*)/;
+                    key: "parseAndFilterQuery",
+                    value: function parseAndFilterQuery(queryString, filter) {
+                        var valueRegex = /=(.*)/;
                         var aQueries = queryString.split(",");
-                        var querySilenced = false;
+                        var filterValue = false;
                         aQueries = aQueries.filter(function (q) {
-                            if (q.includes("silenced=")) {
-                                var r = silencedRegex.exec(q);
+                            if (q.includes(filter + "=")) {
+                                var r = valueRegex.exec(q);
                                 if (r != null) {
+                                    var value = void 0;
                                     try {
-                                        querySilenced = JSON.parse(r[1]);
+                                        filterValue = JSON.parse(r[1]);
                                     } catch (err) {
                                         if (r[1] === "only") {
-                                            querySilenced = "only";
+                                            filterValue = "only";
                                         } else {
                                             console.error("error casting silenced value", err);
                                         }
@@ -248,21 +265,26 @@ System.register(["lodash"], function (_export, _context) {
                                 return true;
                             }
                         });
+
                         queryString = aQueries.join(",");
                         queryString = queryString.replace(/\s/g, "");
-                        return { queryString: queryString, querySilenced: querySilenced };
+                        return { "queryString": queryString, "filterValue": filterValue };
                     }
                 }, {
-                    key: "filterSilencedOnlyData",
-                    value: function filterSilencedOnlyData(data, silenced) {
-                        if (silenced !== "only") {
+                    key: "filterOnlyData",
+                    value: function filterOnlyData(data, filter, value) {
+                        if (!value || value !== "only") {
                             return data;
                         }
+
                         return data.filter(function (d) {
-                            if (d.status.silencedBy.length === 0) {
-                                return false;
+                            if (d.status[filter] && d.status[filter].length > 0) {
+                                return true;
                             }
-                            return true;
+                            if (d.labels[filter] && d.labels[filter].length > 0) {
+                                return true;
+                            }
+                            return false;
                         });
                     }
                 }, {

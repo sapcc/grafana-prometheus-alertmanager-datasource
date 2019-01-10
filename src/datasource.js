@@ -2,20 +2,25 @@ import _ from "lodash";
 
 export class GenericDatasource {
 
-  constructor(instanceSettings, $q, backendSrv, templateSrv) {
-    this.type = instanceSettings.type;
-    this.url = instanceSettings.url;
-    this.name = instanceSettings.name;
-    this.silenced = typeof instanceSettings.jsonData.silenced !== "undefined" ? instanceSettings.jsonData.silenced : false;
-    this.severityLevels = {}
-    this.severityLevels[instanceSettings.jsonData.severity_critical.toLowerCase()]  = 4;
-    this.severityLevels[instanceSettings.jsonData.severity_high.toLowerCase()]      = 3;
-    this.severityLevels[instanceSettings.jsonData.severity_warning.toLowerCase()]   = 2;
-    this.severityLevels[instanceSettings.jsonData.severity_info.toLowerCase()]      = 1;
-    this.q = $q;
-    this.backendSrv = backendSrv;
-    this.templateSrv = templateSrv;
-  }
+    constructor(instanceSettings, $q, backendSrv, templateSrv) {
+        this.type = instanceSettings.type;
+        this.url = instanceSettings.url;
+        this.name = instanceSettings.name;
+        this.silenced = typeof instanceSettings.jsonData.silenced !== "undefined" ? instanceSettings.jsonData.silenced : false;
+        this.severityLevels = {}
+        this.severityLevels[instanceSettings.jsonData.severity_critical.toLowerCase()]  = 4;
+        this.severityLevels[instanceSettings.jsonData.severity_high.toLowerCase()]      = 3;
+        this.severityLevels[instanceSettings.jsonData.severity_warning.toLowerCase()]   = 2;
+        this.severityLevels[instanceSettings.jsonData.severity_info.toLowerCase()]      = 1;
+        this.q = $q;
+        this.backendSrv = backendSrv;
+        this.templateSrv = templateSrv;
+
+        this.filters = {
+            "silencedBy": this.silenced,
+            "acknowledgedBy": false
+        }
+    }
 
     async query(options) {
         let query = this.buildQueryParameters(options);
@@ -28,17 +33,21 @@ export class GenericDatasource {
             "data": []
         }
         let queryPromises = [];
+
         query.targets.forEach(target => {
             var queryString = this.templateSrv.replace(target.expr, options.scopedVars);
-            var querySilenced = this.silenced;
+            let filters = Object.assign({}, this.filters);
             if (queryString) {
-                var {queryString, querySilenced} = this.parseQuery(queryString)
+                for ( let filter in filters) {
+                    var {queryString, filterValue} = this.parseAndFilterQuery(queryString, filter);
+                    filters[filter] = filterValue;
+                };
             }
             if(target.type === "table"){
                 // Format data for table panel
-                queryPromises.push(this.formatDataTable(query, queryString, querySilenced));
+                queryPromises.push(this.formatDataTable(query, queryString, filters));
             } else {
-                queryPromises.push(this.formatDataStat(query, queryString, querySilenced, target.alias));
+                queryPromises.push(this.formatDataStat(query, queryString, filters, target.alias));
             }
         });
         let result = await Promise.all(queryPromises);
@@ -46,9 +55,9 @@ export class GenericDatasource {
         return results;
     }
 
-    async formatDataTable(query, queryString, silenced) {
+    async formatDataTable(query, queryString, filters) {
         let labelSelector = this.parseLabelSelector(query.targets[0].labelSelector);
-        const response = await this.makeRequest(query, queryString, silenced);
+        const response = await this.makeRequest(query, queryString, filters.silencedBy);
         let results = {
             "rows": [],
             "columns": [],
@@ -56,7 +65,10 @@ export class GenericDatasource {
         };
 
         if(response.data && response.data.data && response.data.data.length) {
-            let data = this.filterSilencedOnlyData(response.data.data, silenced)
+            let data = response.data.data;
+            for ( let filter in filters) {
+                data = this.filterOnlyData(data, filter, filters[filter]);
+            };
             let columnsDict = this.getColumnsDict(data, labelSelector);
             results.columns = this.getColumns(columnsDict);
 
@@ -81,7 +93,7 @@ export class GenericDatasource {
                                 if (silencedByID) {
                                     try {
                                         const silencedBy = await this.getSilencedByUser(silencedByID);
-                                        row[columnsDict[label]] = silencedBy.data.data.createdBy;;
+                                        row[columnsDict[label]] = silencedBy.data.data.createdBy;
                                     } catch(err) {
                                         console.error(err)
                                     }
@@ -103,9 +115,12 @@ export class GenericDatasource {
         return results;
     }
 
-    formatDataStat(query, queryString, silenced, alias) {
-        return this.makeRequest(query, queryString, silenced).then(response => {
-            let data = this.filterSilencedOnlyData(response.data.data, silenced)
+    formatDataStat(query, queryString, filters, alias) {
+        return this.makeRequest(query, queryString, filters.silencedBy).then(response => {
+            let data = response.data.data;
+            for ( let filter in filters) {
+                data = this.filterOnlyData(data, filter, filters[filter]);
+            };
             return {
                 "datapoints": [ [data.length, Date.now()] ], "target": alias
             }
@@ -131,19 +146,20 @@ export class GenericDatasource {
         });
     }
 
-    parseQuery(queryString) {
-        const silencedRegex = /=(.*)/;
+    parseAndFilterQuery(queryString, filter) {
+        const valueRegex = /=(.*)/;
         let aQueries = queryString.split(",");
-        let querySilenced = false;
+        let filterValue = false;
         aQueries = aQueries.filter(q => {
-            if (q.includes("silenced=")) {
-                let r = silencedRegex.exec(q);
+            if (q.includes(filter + "=")) {
+                let r = valueRegex.exec(q);
                 if (r != null) {
+                    let value;
                     try {
-                        querySilenced = JSON.parse(r[1]);
+                        filterValue = JSON.parse(r[1]);
                     }catch(err) {
                         if (r[1] === "only") {
-                            querySilenced = "only";
+                            filterValue = "only";
                         } else {
                             console.error("error casting silenced value", err)
                         }
@@ -154,20 +170,25 @@ export class GenericDatasource {
                 return true
             }
         });
+
         queryString = aQueries.join(",")
         queryString = queryString.replace(/\s/g, "");
-        return {queryString, querySilenced};
+        return {"queryString": queryString, "filterValue": filterValue};
     }
 
-    filterSilencedOnlyData(data, silenced) {
-        if (silenced !== "only") {
+    filterOnlyData(data, filter, value) {
+        if (!value || value !== "only") {
             return data;
         }
+
         return data.filter(d => {
-            if (d.status.silencedBy.length === 0) {
-                return false;
+            if (d.status[filter] && d.status[filter].length > 0) {
+                return true;
             }
-            return true;
+            if (d.labels[filter] && d.labels[filter].length > 0) {
+                return true;
+            }
+            return false;
         });
     }
 
