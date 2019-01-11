@@ -185,7 +185,7 @@ export class GenericDatasource {
             if (d.status[filter] && d.status[filter].length > 0) {
                 return true;
             }
-            if (d.labels[filter] && d.labels[filter].length > 0) {
+            if (d.annotations[filter] && d.annotations[filter].length > 0) {
                 return true;
             }
             return false;
