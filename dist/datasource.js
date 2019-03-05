@@ -208,13 +208,30 @@ System.register(["lodash"], function (_export, _context) {
                     value: function formatDataStat(query, queryString, filters, alias) {
                         var _this2 = this;
 
-                        return this.makeRequest(query, queryString, filters.silencedBy).then(function (response) {
+                        return this.makeRequest(query, queryString, filters.silencedBy).then(async function (response) {
                             var data = response.data.data;
                             for (var filter in filters) {
                                 data = _this2.filterOnlyData(data, filter, filters[filter]);
                             };
+                            var acked = new Set();;
+                            var silenced = new Set();;
+                            for (var i = 0; i < data.length; i++) {
+                                var alert = data[i];
+                                var silencedByID = alert['status']['silencedBy'][0];
+                                if (silencedByID) {
+                                    try {
+                                        var silencedBy = await _this2.getSilencedByUser(silencedByID);
+                                        silenced.add(silencedBy.data.data.createdBy);
+                                    } catch (err) {
+                                        console.error(err);
+                                    }
+                                }
+                                if (alert['annotations']['acknowledgedBy']) {
+                                    acked.add(alert['annotations']['acknowledgedBy']);
+                                }
+                            }
                             return {
-                                "datapoints": [[data.length, Date.now()]], "target": alias
+                                "datapoints": [[data.length, Date.now()]], "target": alias, "silenced": silenced, "acked": acked
                             };
                         });
                     }

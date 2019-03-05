@@ -116,13 +116,30 @@ export class GenericDatasource {
     }
 
     formatDataStat(query, queryString, filters, alias) {
-        return this.makeRequest(query, queryString, filters.silencedBy).then(response => {
+        return this.makeRequest(query, queryString, filters.silencedBy).then(async response => {
             let data = response.data.data;
             for ( let filter in filters) {
                 data = this.filterOnlyData(data, filter, filters[filter]);
             };
+            let acked = new Set();;
+            let silenced = new Set();;
+            for (let i=0; i < data.length; i++) {
+                const alert = data[i];
+                const silencedByID = alert['status']['silencedBy'][0];
+                if (silencedByID) {
+                    try {
+                        const silencedBy = await this.getSilencedByUser(silencedByID);
+                        silenced.add(silencedBy.data.data.createdBy);
+                    } catch(err) {
+                        console.error(err)
+                    }
+                }
+                if(alert['annotations']['acknowledgedBy']) {
+                    acked.add(alert['annotations']['acknowledgedBy']);
+                }
+            }
             return {
-                "datapoints": [ [data.length, Date.now()] ], "target": alias
+                "datapoints": [ [data.length, Date.now()] ], "target": alias, "silenced": silenced, "acked": acked 
             }
         });
     }
