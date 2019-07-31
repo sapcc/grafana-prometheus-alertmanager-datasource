@@ -16,6 +16,8 @@ export class GenericDatasource {
         this.backendSrv = backendSrv;
         this.templateSrv = templateSrv;
 
+        this.silencedByIDCache = {};
+
         this.filters = {
             "silencedBy": this.silenced,
             "acknowledgedBy": false
@@ -155,12 +157,19 @@ export class GenericDatasource {
         });
     }
 
-    getSilencedByUser(id) {
-        return this.backendSrv.datasourceRequest({
+    async getSilencedByUser(id) {
+        console.log("calling getSilencedByUser: ", id)
+        if (this.silencedByIDCache[id]) {
+            return this.silencedByIDCache[id]
+        }
+        let user = await this.backendSrv.datasourceRequest({
             url: `${this.url}/api/v1/silence/${id}`,
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
+
+        this.silencedByIDCache[id] = user;
+        return user;
     }
 
     parseAndFilterQuery(queryString, filter) {

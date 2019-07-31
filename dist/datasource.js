@@ -51,6 +51,8 @@ System.register(["lodash"], function (_export, _context) {
                     this.backendSrv = backendSrv;
                     this.templateSrv = templateSrv;
 
+                    this.silencedByIDCache = {};
+
                     this.filters = {
                         "silencedBy": this.silenced,
                         "acknowledgedBy": false
@@ -249,12 +251,19 @@ System.register(["lodash"], function (_export, _context) {
                     }
                 }, {
                     key: "getSilencedByUser",
-                    value: function getSilencedByUser(id) {
-                        return this.backendSrv.datasourceRequest({
+                    value: async function getSilencedByUser(id) {
+                        console.log("calling getSilencedByUser: ", id);
+                        if (this.silencedByIDCache[id]) {
+                            return this.silencedByIDCache[id];
+                        }
+                        var user = await this.backendSrv.datasourceRequest({
                             url: this.url + "/api/v1/silence/" + id,
                             method: 'GET',
                             headers: { 'Content-Type': 'application/json' }
                         });
+
+                        this.silencedByIDCache[id] = user;
+                        return user;
                     }
                 }, {
                     key: "parseAndFilterQuery",
